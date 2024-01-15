@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lift_pass_pricing"
+version = "0.0.0"
+
+[tool.coverage.run]
+branch = true
+source = ["lift_pass_pricing"]
+
+[tool.pytest.ini_options]
+addopts = "--cov --cov-report=lcov:coverage/lcov.info --cov-report=term"

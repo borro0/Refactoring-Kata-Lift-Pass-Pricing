@@ -3,7 +3,7 @@ import math
 from flask import Flask
 from flask import request
 from datetime import datetime
-from db import create_lift_pass_db_connection
+from lift_pass_pricing.db import create_lift_pass_db_connection
 
 app = Flask("lift-pass-pricing")
 
@@ -22,6 +22,7 @@ def prices():
     if connection is None:
         connection = create_lift_pass_db_connection(connection_options)
     if request.method == 'PUT':
+        
         lift_pass_cost = request.args["cost"]
         lift_pass_type = request.args["type"]
         cursor = connection.cursor()
