@@ -77,6 +77,8 @@ def prices():
 
     return res
 
+def main():
+    app.run(port=3005)
 
 if __name__ == "__main__":
-    app.run(port=3005)
+    main()

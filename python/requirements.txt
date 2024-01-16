@@ -3,3 +3,6 @@ pytest
 requests
 pyodbc
 PyMySQL
+coverage
+pytest-cov
+-e .
