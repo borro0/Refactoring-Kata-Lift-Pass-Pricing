@@ -5,7 +5,6 @@ def create_lift_pass_db_connection(connection_options):
     connection_functions = [
         try_to_connect_with_odbc,
         try_to_connect_with_pymysql,
-        try_to_connect_with_sqlite3,
     ]
     for fun in connection_functions:
         try:
