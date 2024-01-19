@@ -1,81 +1,54 @@
-import math
-
 from flask import Flask
 from flask import request
-from datetime import datetime
-from lift_pass_pricing.db import create_lift_pass_db_connection
+from lift_pass_pricing.price_calculator import PriceCalculator
+from lift_pass_pricing.price_data_access import PriceDataAccess
+import json
 
 app = Flask("lift-pass-pricing")
 
 connection_options = {
-    "host": 'localhost',
-    "user": 'root',
-    "database": 'lift_pass',
-    "password": 'mysql'}
+    "host": "localhost",
+    "user": "root",
+    "database": "lift_pass",
+    "password": "mysql",
+}
 
-connection = None
+price_data_access = PriceDataAccess(connection_options)
 
-@app.route("/prices", methods=['GET', 'PUT'])
+
+@app.route("/prices", methods=["GET", "PUT"])
 def prices():
     res = {}
-    global connection
-    if connection is None:
-        connection = create_lift_pass_db_connection(connection_options)
-    if request.method == 'PUT':
-        
+    if request.method == "PUT":
         lift_pass_cost = request.args["cost"]
         lift_pass_type = request.args["type"]
-        cursor = connection.cursor()
-        cursor.execute('INSERT INTO `base_price` (type, cost) VALUES (?, ?) ' +
-            'ON DUPLICATE KEY UPDATE cost = ?', (lift_pass_type, lift_pass_cost, lift_pass_cost))
+        price_data_access.store_pass_type_base_price(lift_pass_cost, lift_pass_type)
         return {}
-    elif request.method == 'GET':
-        cursor = connection.cursor()
-        cursor.execute(f'SELECT cost FROM base_price '
-                       + 'WHERE type = ? ', (request.args['type'],))
-        row = cursor.fetchone()
-        result = {"cost": row[0]}
-        if 'age' in request.args and request.args.get('age', type=int) < 6:
-             res["cost"] = 0
-        else:
-            if "type" in request.args and request.args["type"] != "night":
-                cursor = connection.cursor()
-                cursor.execute('SELECT * FROM holidays')
-                is_holiday = False
-                reduction = 0
-                for row in cursor.fetchall():
-                    holiday = row[0]
-                    if "date" in request.args:
-                        d = datetime.fromisoformat(request.args["date"])
-                        if d.year == holiday.year and d.month == holiday.month and holiday.day == d.day:
-                            is_holiday = True
-                if not is_holiday and "date" in request.args and datetime.fromisoformat(request.args["date"]).weekday() == 0:
-                    reduction = 35
-
-                # TODO: apply reduction for others
-                if 'age' in request.args and request.args.get('age', type=int) < 15:
-                     res['cost'] = math.ceil(result["cost"]*.7)
-                else:
-                    if 'age' not in request.args:
-                        cost = result['cost'] * (1 - reduction/100)
-                        res['cost'] = math.ceil(cost)
-                    else:
-                        if 'age' in request.args and request.args.get('age', type=int) > 64:
-                            cost = result['cost'] * .75 * (1 - reduction / 100)
-                            res['cost'] = math.ceil(cost)
-                        elif 'age' in request.args:
-                            cost = result['cost'] * (1 - reduction / 100)
-                            res['cost'] = math.ceil(cost)
-            else:
-                if 'age' in request.args and request.args.get('age', type=int) >= 6:
-                    if request.args.get('age', type=int) > 64:
-                        res['cost'] = math.ceil(result['cost'] * .4)
-                    else:
-                        res.update(result)
-                else:
-                    res['cost'] = 0
+    elif request.method == "GET":
+        res = handle_get_request()
 
     return res
+
+
+def handle_get_request():
+    if "multiple_prices" in request.args:
+        res = []
+        for request_params in json.loads(request.args["multiple_prices"].replace("'", '"')):
+            res.append({"cost": request_single_pass_price(request_params)})
+    else:
+        res = {}
+        res["cost"] = request_single_pass_price(request.args)
+    return res
+
+def request_single_pass_price(arg_dict):
+    price_calculator = PriceCalculator(price_data_access)
+
+    pass_type = arg_dict["type"]
+    age = int(arg_dict["age"]) if "age" in arg_dict else None
+    date = arg_dict["date"] if "date" in arg_dict else None
+
+    return price_calculator.calculate_price(pass_type, age, date)
+
 
 def main():
     app.run(port=3005)
